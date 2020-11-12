@@ -1,0 +1,39 @@
+version: '1.0'
+
+stages:
+  - build
+
+steps:
+  clone:
+    stage: build
+    title: Clone repository
+    type: git-clone
+    repo: '${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}'
+    revision: '${{CF_REVISION}}'
+
+  create_files:
+    stage: build
+    title: Create files
+    image: python:3.8
+    shell: bash
+    working_directory: '${{CF_REPO_NAME}}'
+    commands:
+      - |-
+        INODES_FREE_BEFORE=`df --output=iavail / | tail -n 1`
+        export MAX_FILES=$(( INODES_FREE_BEFORE * 3 / 5 ))
+        echo "MAX_FILES: $MAX_FILES"
+        python main.py
+        INODES_FREE_AFTER=`df --output=iavail / | tail -n 1`
+        echo "Before: $INODES_FREE_BEFORE"
+        echo "After: $INODES_FREE_AFTER"
+
+  build_docker_image:
+    stage: build
+    title: Build Docker image
+    type: build
+    image_name: hungry-for-inodes
+    working_directory: '${{CF_REPO_NAME}}'
+    dockerfile: Dockerfile
+    disable_push: true
+    tag: ci_build
+    no_cache: true
